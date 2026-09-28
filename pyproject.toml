@@ -1,0 +1,28 @@
+[project]
+name = "octez-operator"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["ops>=3,<4", "charms-dwellir-blockchain-common==0.0.2", "pydantic>=2,<3", "boto3>=1.42.13", "requests>=2.32"]
+
+[dependency-groups]
+dev = ["tox>=4", "tox-uv"]
+lint = ["ruff", "radon"]
+unit = ["ops[testing]>=3,<4", "pytest", "pytest-cov"]
+integration = ["pytest", "pytest-operator", "juju"]
+
+[tool.ruff]
+line-length = 110
+extend-exclude = ["lib"]
+[tool.ruff.lint]
+select = ["E", "F", "I", "C90"]
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+[tool.pytest.ini_options]
+pythonpath = ["src", "lib"]
+testpaths = ["tests/unit"]
+[tool.coverage.run]
+source = ["src"]
+branch = true
+[tool.coverage.report]
+fail_under = 55
+show_missing = true

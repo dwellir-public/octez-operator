@@ -1,0 +1,22 @@
+[Unit]
+Description=Octez EVM archive observer
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/var/lib/octez/.snapshot-imported
+
+[Service]
+Type=simple
+User=octez
+Group=octez
+EnvironmentFile=/etc/default/octez
+ExecStart=/usr/local/bin/octez-evm-node run observer --data-dir /var/lib/octez $OCTEZ_CLI_ARGS
+Restart=on-failure
+RestartSec=15
+TimeoutStopSec=300
+LimitNOFILE=1048576
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

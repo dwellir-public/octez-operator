@@ -1,0 +1,70 @@
+name: octez
+type: charm
+title: Octez EVM node
+summary: Run an Octez EVM observer with archive history.
+description: |
+  Manage native Octez EVM observer nodes using systemd.
+  Import archive snapshots outside Juju hooks and publish runtime metadata.
+platforms:
+  ubuntu@24.04:amd64:
+parts:
+  charm:
+    plugin: uv
+    source: .
+    build-snaps: [astral-uv]
+  files:
+    plugin: dump
+    source: .
+    stage: [README.md, templates/**]
+assumes: [juju >= 3.1]
+provides:
+  machine-observability:
+    interface: machine_observability
+config:
+  options:
+    binary-url:
+      type: string
+      default: ""
+      description: HTTPS URL for a native Linux amd64 octez-evm-node binary.
+    binary-sha256:
+      type: string
+      default: ""
+      description: Required SHA256 digest of the native binary.
+    service-args:
+      type: string
+      default: "--network mainnet --history archive --rpc-addr 0.0.0.0 --rpc-port 8545 --dont-track-rollup-node"
+      description: |
+        Arguments after `run observer`. The charm owns --data-dir and --config-file.
+        Archive history is required. RPC must listen on 0.0.0.0:8545.
+        Configure upstream and preimage endpoints here when not supplied by --network.
+    snapshot-source:
+      type: string
+      default: ""
+      description: |
+        HTTPS archive snapshot URL or absolute path. Native import streams URLs without a compressed copy.
+        Used only before the first successful import. Changing this never replaces existing node data.
+    chain-id:
+      type: int
+      default: 42793
+      description: Expected EVM chain ID. RPC mismatch blocks the unit.
+    network-name:
+      type: string
+      default: etherlink-mainnet
+      description: Chain identity included in metadata.
+    collector-s3-credentials:
+      type: secret
+      default: ""
+      description: |
+        Juju secret with bucket, region, access-key-id, secret-access-key,
+        optional endpoint-url, key-prefix and session-token. Without this, metadata stays local.
+actions:
+  start-node:
+    description: Start a bootstrapped node or retry a failed import without replacing existing data.
+  stop-node:
+    description: Stop the node and snapshot worker; preserve node data.
+  restart-node:
+    description: Restart an imported node; refuse while importing a snapshot.
+  get-node-info:
+    description: Report service state, version, arguments, disk use and bootstrap state.
+  print-readme:
+    description: Return the packaged operator documentation.

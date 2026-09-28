@@ -1,0 +1,42 @@
+name: Release
+on:
+  workflow_dispatch:
+    inputs:
+      snapshot:
+        description: HTTPS URL for a small genuine mainnet archive snapshot
+        required: true
+        type: string
+      tag:
+        description: New release tag, for example v0.1.0
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: make lint-test unit-test
+  integration:
+    needs: unit
+    uses: ./.github/workflows/charm-integration.yml
+    with:
+      snapshot: ${{ inputs.snapshot }}
+  release:
+    needs: integration
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: octez-charm
+      - name: Publish tested charm
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          REPOSITORY: ${{ github.repository }}
+          REVISION: ${{ github.sha }}
+        run: gh release create "$RELEASE_TAG" ./*.charm --repo "$REPOSITORY" --target "$REVISION" --generate-notes

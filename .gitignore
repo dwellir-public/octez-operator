@@ -1,0 +1,16 @@
+.venv/
+.tox/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.charm
+parts/
+prime/
+stage/
+.craft/
+build/
+
+.build/
+.integration/
