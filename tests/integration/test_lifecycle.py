@@ -72,7 +72,7 @@ def test_archive_lifecycle(juju):
     ready(juju, timeout=3600)
     unit = next(iter(juju.status().apps["octez"].units))
     info = action(juju, unit, "get-node-info")
-    assert info["snapshot-imported"] is True
+    assert str(info["snapshot-imported"]).lower() == "true"
     assert info["service-state"] == "active"
     assert "0.66" in info["version"]
     assert "Octez EVM operator" in action(juju, unit, "print-readme")["readme"]
