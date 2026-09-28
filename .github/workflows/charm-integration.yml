@@ -38,6 +38,8 @@ jobs:
         env:
           OCTEZ_CHARM: ./octez_ubuntu@24.04-amd64.charm
           OCTEZ_TEST_SNAPSHOT: ${{ inputs.snapshot }}
+          OCTEZ_INITIAL_BINARY_URL: https://gitlab.com/api/v4/projects/3836952/packages/generic/octez-evm-node-0.65/0.65/linux-x86_64-octez-evm-node
+          OCTEZ_INITIAL_BINARY_SHA256: 7cda413e627c70e6510018ce52e71fd8f90202643b3e1b5ec56c380cf260bb2d
           OCTEZ_BINARY_URL: https://gitlab.com/api/v4/projects/3836952/packages/generic/octez-evm-node-0.66/0.66/linux-x86_64-octez-evm-node
           OCTEZ_BINARY_SHA256: e36136e0bdd9f527dd17b0ab6c8b3d3951fc986c6bbf48d14f92be0a72133079
           OCTEZ_ALLOW_DESTRUCTIVE: "yes"

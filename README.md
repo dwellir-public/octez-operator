@@ -20,6 +20,8 @@ juju deploy ./octez_ubuntu@24.04-amd64.charm octez --to 0 \
 
 Verify the current archive URL and capacity before deployment.
 An absolute `snapshot-source` path also supports a previously downloaded snapshot.
+Use `/var/lib/octez-snapshots/archive.snapshot`, readable by `octez`.
+Paths under `/tmp` or `/var/tmp` are hidden by the bootstrap service's private temporary directories.
 The charm does not copy or delete that file.
 
 The default command includes mainnet, archive history, HTTP port 8545, and `--dont-track-rollup-node`.
