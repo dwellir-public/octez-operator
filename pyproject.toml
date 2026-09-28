@@ -8,7 +8,7 @@ dependencies = ["ops>=3,<4", "charms-dwellir-blockchain-common==0.0.2", "pydanti
 dev = ["tox>=4", "tox-uv"]
 lint = ["ruff", "radon"]
 unit = ["ops[testing]>=3,<4", "pytest", "pytest-cov"]
-integration = ["pytest", "pytest-operator", "juju"]
+integration = ["pytest", "jubilant>=1,<2"]
 
 [tool.ruff]
 line-length = 110

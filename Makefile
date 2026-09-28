@@ -11,6 +11,6 @@ lint-test:
 unit-test:
 	uv run --frozen --group unit pytest tests/unit --cov=src --cov-report=term-missing
 integration-test:
-	uv run --frozen --group integration pytest tests/integration --destructive-mode -v $(ARGS)
+	uv run --frozen --group integration pytest tests/integration -v $(ARGS)
 build-charm:
 	charmcraft pack --platform=ubuntu@24.04:amd64

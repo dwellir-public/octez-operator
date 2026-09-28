@@ -27,6 +27,12 @@ jobs:
           sudo snap install charmcraft --classic
           sudo snap install astral-uv --classic
       - run: juju bootstrap localhost octez-ci
+      - name: Create explicit disposable model
+        run: |
+          juju add-model octez-test --controller octez-ci
+          echo "OCTEZ_TEST_MODEL=octez-ci:admin/octez-test" >> "$GITHUB_ENV"
+          model_uuid=$(juju show-model -m octez-ci:admin/octez-test --format json | jq -r '.[]."model-uuid"')
+          echo "OCTEZ_TEST_MODEL_UUID=$model_uuid" >> "$GITHUB_ENV"
       - run: make build-charm
       - name: Run lifecycle integration
         env:
@@ -34,7 +40,8 @@ jobs:
           OCTEZ_TEST_SNAPSHOT: ${{ inputs.snapshot }}
           OCTEZ_BINARY_URL: https://gitlab.com/api/v4/projects/3836952/packages/generic/octez-evm-node-0.66/0.66/linux-x86_64-octez-evm-node
           OCTEZ_BINARY_SHA256: e36136e0bdd9f527dd17b0ab6c8b3d3951fc986c6bbf48d14f92be0a72133079
-        run: make integration-test ARGS='--controller octez-ci'
+          OCTEZ_ALLOW_DESTRUCTIVE: "yes"
+        run: make integration-test
       - uses: actions/upload-artifact@v4
         with:
           name: octez-charm

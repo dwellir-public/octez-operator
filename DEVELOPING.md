@@ -32,11 +32,16 @@ export OCTEZ_CHARM=/absolute/path/to/octez.charm
 export OCTEZ_TEST_SNAPSHOT=https://your-test-storage.example/tiny-archive
 export OCTEZ_BINARY_URL=https://gitlab.com/api/v4/projects/3836952/packages/generic/octez-evm-node-0.66/0.66/linux-x86_64-octez-evm-node
 export OCTEZ_BINARY_SHA256=e36136e0bdd9f527dd17b0ab6c8b3d3951fc986c6bbf48d14f92be0a72133079
-make integration-test ARGS='--controller local --model disposable-octez'
+export OCTEZ_TEST_MODEL=local:admin/disposable-octez
+export OCTEZ_TEST_MODEL_UUID=MODEL_UUID
+export OCTEZ_ALLOW_DESTRUCTIVE=yes
+make integration-test
 ```
 
 For an already staged fixture, set OCTEZ_TEST_MACHINE to its machine ID and use an absolute snapshot path.
-The suite deploys the charm on that machine.
+The pytest/Jubilant suite deploys the charm on that machine.
+It verifies the model UUID and permits only the localhost LXD cloud.
+It refuses an existing octez application and leaves the supplied model for inspection.
 The manual integration workflow and release workflow run this suite.
 Pull requests run lint and unit tests only.
 Release remains blocked until integration succeeds; the release workflow publishes a GitHub artifact, not a Charmhub channel.
