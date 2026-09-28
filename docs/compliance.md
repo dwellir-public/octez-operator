@@ -14,7 +14,7 @@ Before: empty repository. No deployed charm exists.
 | Accurate source topology | Required baseline OBS-001 / observability | GAP | Implement | PASS conditional on live collector | Pending live checks |
 | Machine observability schema v3 | Contract-required / selected interface | GAP | Vendor reference | PASS | PASS: byte-identical reference and relation payload test |
 | Recoverable snapshot bootstrap outside hooks | Task-required / archive deployment | GAP | Implement | PASS conditional on real snapshot import | Pending integration |
-| 55% coverage, lint and build | Task-required creation standard / shared | GAP | Implement | PASS | PASS: 30 unit tests, coverage above 55%, Ruff, Ubuntu 24.04 charmpacker build |
+| 55% coverage, lint and build | Task-required creation standard / shared | GAP | Implement | PASS | PASS: 31 unit tests, coverage above 55%, Ruff, Ubuntu 24.04 charmpacker build |
 | Built artifact and pytest/Jubilant integration | Required baseline DEPLOY-001 and task-required creation standard / release | UNKNOWN | Implement suite; run on explicit test model | PASS conditional on environment | Pending integration |
 | Alerts | Recommended default / observability | N/A | Publish empty artifacts; no approved thresholds | N/A | Empty artifacts |
 
@@ -73,3 +73,6 @@ The snapshot staging request is not adopted because the native importer already 
 Normal importer failure performs native temporary-directory cleanup.
 A forced kill or interruption during final promotion requires operator inspection.
 The charm refuses to delete ambiguous data or bypass its no-overwrite guard.
+
+The worker detects leftover native `.octez_evm_node_import_*` staging before starting another import.
+This prevents a reboot from silently starting a second multi-terabyte extraction beside interrupted data.

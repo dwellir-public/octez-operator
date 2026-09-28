@@ -13,6 +13,8 @@ def import_snapshot(config: dict) -> None:
         return
     if (data / "store").exists() or (data / "store.sqlite").exists():
         raise RuntimeError("Existing node data found without import marker; inspect before recovery")
+    if any(data.glob(".octez_evm_node_import_*")):
+        raise RuntimeError("Interrupted native snapshot staging found; inspect before recovery")
     subprocess.run(
         [config["binary"], "snapshot", "import", config["source"], "--data-dir", str(data)],
         check=True,

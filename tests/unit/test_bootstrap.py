@@ -28,10 +28,17 @@ def test_import_marks_success_only_after_real_store_exists(tmp_path):
     assert run.call_count == 1
 
 
-@pytest.mark.parametrize("existing", ["store", "store.sqlite"])
-def test_existing_data_without_marker_is_never_overwritten(tmp_path, existing):
+@pytest.mark.parametrize(
+    "existing, message",
+    [
+        ("store", "Existing node data"),
+        ("store.sqlite", "Existing node data"),
+        (".octez_evm_node_import_abcd", "Interrupted native snapshot staging"),
+    ],
+)
+def test_ambiguous_snapshot_data_is_never_overwritten(tmp_path, existing, message):
     (tmp_path / existing).touch()
-    with patch("bootstrap.subprocess.run") as run, pytest.raises(RuntimeError, match="Existing node data"):
+    with patch("bootstrap.subprocess.run") as run, pytest.raises(RuntimeError, match=message):
         import_snapshot({"binary": "octez", "data_dir": str(tmp_path), "source": "snapshot"})
     run.assert_not_called()
     assert not (tmp_path / ".snapshot-imported").exists()

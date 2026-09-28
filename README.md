@@ -44,6 +44,8 @@ The charm verifies a prestaged binary against `binary-sha256` before using it.
 The importer does not resume partial downloads.
 After failure, inspect `journalctl -u octez-bootstrap` before running `start-node`.
 The worker refuses to overwrite `store` or `store.sqlite` without a completion marker.
+It also blocks when native `.octez_evm_node_import_*` staging remains after a forced kill or reboot.
+Inspect those files before recovery; the charm never deletes them.
 It never passes `--force`.
 Inspect incomplete data before recovery; the charm never deletes node data.
 Changing `snapshot-source` does not replace an imported database.
