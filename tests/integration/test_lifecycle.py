@@ -27,7 +27,7 @@ def juju():
     artifact = Path(os.environ["OCTEZ_CHARM"])
     assert artifact.is_file() and artifact.suffix == ".charm", "Use a built local charm artifact"
     client = jubilant.Juju(model=target, wait_timeout=600)
-    details = json.loads(client.cli("show-model", "--format=json"))
+    details = json.loads(client.cli("show-model", target, "--format=json", include_model=False))
     model = next(iter(details.values()))
     assert model["model-uuid"] == os.environ["OCTEZ_TEST_MODEL_UUID"], "Model identity mismatch"
     status = client.status()

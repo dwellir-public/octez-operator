@@ -31,7 +31,7 @@ jobs:
         run: |
           juju add-model octez-test --controller octez-ci
           echo "OCTEZ_TEST_MODEL=octez-ci:admin/octez-test" >> "$GITHUB_ENV"
-          model_uuid=$(juju show-model -m octez-ci:admin/octez-test --format json | jq -r '.[]."model-uuid"')
+          model_uuid=$(juju show-model octez-ci:admin/octez-test --format json | jq -r '.[]."model-uuid"')
           echo "OCTEZ_TEST_MODEL_UUID=$model_uuid" >> "$GITHUB_ENV"
       - run: make build-charm
       - name: Run lifecycle integration

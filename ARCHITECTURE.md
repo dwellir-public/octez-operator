@@ -19,6 +19,8 @@ The upstream importer streams HTTP input and performs its own extraction and fin
 Network failure requires a fresh import attempt. There is no byte-range resume.
 
 System management commands have a 60-second timeout.
+Stops and restarts allow 330 seconds, exceeding systemd's 300-second stop timeout.
+An explicit stop disables the service at boot until the operator starts it again.
 Snapshot import runs in a separate oneshot service with no start timeout.
 An active bootstrap prevents binary installation or service-file changes.
 This also supports imports started before charm deployment.

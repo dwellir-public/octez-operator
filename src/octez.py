@@ -15,9 +15,9 @@ from charms.dwellir.blockchain_common.v1.systemd import install_systemd_unit, wr
 import constants as c
 
 
-def command(*args: str, check: bool = True) -> subprocess.CompletedProcess:
+def command(*args: str, check: bool = True, timeout: int = 60) -> subprocess.CompletedProcess:
     """Run a bounded management command; never use this for snapshot import."""
-    return subprocess.run(args, check=check, text=True, capture_output=True, timeout=60)
+    return subprocess.run(args, check=check, text=True, capture_output=True, timeout=timeout)
 
 
 def service_state(service: str) -> str:
@@ -44,7 +44,9 @@ def stop_services() -> None:
     for service in (c.SERVICE, c.BOOTSTRAP_SERVICE):
         loaded = command("systemctl", "show", service, "--property=LoadState", "--value").stdout.strip()
         if loaded != "not-found":
-            command("systemctl", "stop", service)
+            if service == c.SERVICE:
+                command("systemctl", "disable", service)
+            command("systemctl", "stop", service, timeout=330)
 
 
 def validate_config(config) -> str:
@@ -110,13 +112,13 @@ def install_binary(url: str, digest: str) -> None:
         perform_sha256_checksum_from_string(staged, digest)
         staged.chmod(0o755)
         command(str(staged), "--version")
-        command("systemctl", "stop", c.SERVICE, check=False)
+        command("systemctl", "stop", c.SERVICE, check=False, timeout=330)
         staged.replace(c.BINARY)
     finally:
         staged.unlink(missing_ok=True)
 
 
-def configure(args: str, source: str) -> None:
+def configure(args: str, source: str, *, enabled: bool = True) -> None:
     """Install service definitions and worker config while no import is running."""
     if snapshot_ready() and service_state(c.BOOTSTRAP_SERVICE) == "active":
         # An adopted transient oneshot can remain active after import completion.
@@ -132,7 +134,7 @@ def configure(args: str, source: str) -> None:
         json.dumps({"binary": str(c.BINARY), "data_dir": str(c.DATA), "source": source})
     )
     c.BOOTSTRAP_CONFIG.chmod(0o644)
-    command("systemctl", "enable", c.SERVICE)
+    command("systemctl", "enable" if enabled else "disable", c.SERVICE)
 
 
 def start(source: str, *, retry: bool = False) -> None:

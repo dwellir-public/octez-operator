@@ -67,7 +67,7 @@ class OctezCharm(ops.CharmBase):
             octez.prepare()
             self._install_binary()
             changed = self._stored.configured and args != self._stored.service_args
-            octez.configure(args, self.config["snapshot-source"])
+            octez.configure(args, self.config["snapshot-source"], enabled=not self._stored.stopped)
             self._stored.configured = True
             self._stored.service_args = args
             self.unit.set_workload_version(octez.version())
@@ -95,7 +95,7 @@ class OctezCharm(ops.CharmBase):
     def _start_or_restart(self, changed, *, retry=False):
         """Restart only for changed arguments after the snapshot is ready."""
         if changed and octez.snapshot_ready():
-            octez.command("systemctl", "restart", c.SERVICE)
+            octez.command("systemctl", "restart", c.SERVICE, timeout=330)
         else:
             octez.start(self.config["snapshot-source"], retry=retry)
 
@@ -237,7 +237,8 @@ class OctezCharm(ops.CharmBase):
             if octez.bootstrap_running() or not octez.snapshot_ready():
                 raise ValueError("Cannot restart before snapshot import completes")
             self._stored.stopped = False
-            octez.command("systemctl", "restart", c.SERVICE)
+            octez.command("systemctl", "enable", c.SERVICE)
+            octez.command("systemctl", "restart", c.SERVICE, timeout=330)
             self._status_metadata()
             event.set_results({"result": self.unit.status.message})
         except ERRORS as exc:

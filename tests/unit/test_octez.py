@@ -102,7 +102,7 @@ def test_completed_transient_import_does_not_block_node_start(tmp_path, monkeypa
 
 
 def test_stop_skips_missing_node_unit_but_stops_early_import():
-    def command(*args):
+    def command(*args, **kwargs):
         state = "not-found" if args[2] == "octez" else "loaded"
         return subprocess.CompletedProcess(args, 0, state)
 
@@ -110,3 +110,24 @@ def test_stop_skips_missing_node_unit_but_stops_early_import():
         octez.stop_services()
     assert ("systemctl", "stop", "octez-bootstrap") in [call.args for call in run.call_args_list]
     assert ("systemctl", "stop", "octez") not in [call.args for call in run.call_args_list]
+
+
+def test_configuration_preserves_disabled_boot_state(tmp_path, monkeypatch):
+    monkeypatch.setattr(c, "BOOTSTRAP_CONFIG", tmp_path / "bootstrap.json")
+    monkeypatch.setattr(c, "BOOTSTRAP_SCRIPT", tmp_path / "scripts/bootstrap.py")
+    with patch("octez.snapshot_ready", return_value=False), patch("octez.write_service_args"):
+        with patch("octez.install_systemd_unit"), patch("octez.command") as command:
+            octez.configure(CONFIG["service-args"], CONFIG["snapshot-source"], enabled=False)
+    assert command.call_args.args == ("systemctl", "disable", "octez")
+
+
+def test_stopping_disables_boot_before_waiting_for_shutdown():
+    with patch("octez.command", return_value=subprocess.CompletedProcess([], 0, "loaded")) as run:
+        octez.stop_services()
+    operations = [call.args[:3] for call in run.call_args_list]
+    assert operations.index(("systemctl", "disable", "octez")) < operations.index(
+        ("systemctl", "stop", "octez")
+    )
+    for call in run.call_args_list:
+        if call.args[1] == "stop":
+            assert call.kwargs["timeout"] > 300
