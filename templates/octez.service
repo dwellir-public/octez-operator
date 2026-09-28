@@ -11,6 +11,8 @@ Group=octez
 Environment=HOME=/var/lib/octez
 EnvironmentFile=/etc/default/octez
 ExecStart=/usr/local/bin/octez-evm-node run observer --data-dir /var/lib/octez $OCTEZ_CLI_ARGS
+# Octez returns 127 after signal termination with successful cleanup.
+SuccessExitStatus=127
 Restart=on-failure
 RestartSec=15
 TimeoutStopSec=300

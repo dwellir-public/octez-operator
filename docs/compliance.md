@@ -76,3 +76,10 @@ The charm refuses to delete ambiguous data or bypass its no-overwrite guard.
 
 The worker detects leftover native `.octez_evm_node_import_*` staging before starting another import.
 This prevents a reboot from silently starting a second multi-terabyte extraction beside interrupted data.
+
+The independent OpenCode review at `72fd305` found no remaining actionable issues.
+Later runtime integration reproduced Octez's documented clean signal exit code 127.
+The observer unit now accepts that code so an intentional stop reaches `inactive`.
+The bootstrap unit still treats interrupted imports as failures.
+See [upstream exit codes](https://octez.tezos.com/docs/user/exits.html).
+The existing lifecycle integration stop assertion owns this regression.

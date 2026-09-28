@@ -43,3 +43,7 @@ Secret content never enters the local payload.
 The observability library is copied unchanged from the authoritative reference.
 Its contract uses an application databag with unit identity, so each application permits one unit.
 A compatible subordinate must preserve this identity through backend metrics and logs.
+
+Octez returns 127 after SIGTERM or SIGINT with successful cleanup.
+The observer service accepts this exit status; the snapshot worker does not.
+See [upstream process exit documentation](https://octez.tezos.com/docs/user/exits.html).
