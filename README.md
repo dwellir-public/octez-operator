@@ -67,7 +67,8 @@ RPC readiness alone does not prove archive completeness or tracing support.
 ## Metadata and observability
 
 The charm writes `/var/lib/octez-metadata/<unit>.json` with runtime and Juju topology data.
-Chain identity uses explicit `chain-id` and `network-name` configuration.
+Live RPC provides chain identity and client version when available.
+Before RPC starts, metadata labels its configured identity as `operator-config`.
 A live RPC chain mismatch blocks the unit.
 Optional uploads use a model-local Juju secret:
 

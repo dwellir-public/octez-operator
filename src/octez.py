@@ -180,3 +180,17 @@ def node_info() -> dict:
         "disk-total-bytes": disk.total,
         "disk-free-bytes": disk.free,
     }
+
+
+def runtime_identity(configured_chain: int) -> dict:
+    """Prefer live chain identity while keeping unavailable RPC fields explicit."""
+    identity = {"chain_id": configured_chain, "source": "operator-config", "rpc_client_version": None}
+    if service_state(c.SERVICE) != "active":
+        return identity
+    try:
+        identity["chain_id"] = int(str(rpc("eth_chainId")), 16)
+        identity["source"] = "rpc"
+        identity["rpc_client_version"] = rpc("web3_clientVersion")
+    except (requests.RequestException, ValueError, KeyError):
+        pass
+    return identity

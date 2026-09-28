@@ -25,7 +25,8 @@ This also supports imports started before charm deployment.
 
 The common library supplies downloads, checksum validation, environment files, systemd installation, and metadata.
 The local account setup avoids the shared helper's recursive ownership and permission walk over archive data.
-Metadata identifies configured chain values explicitly and records service state and binary version.
+Metadata prefers live chain identity and records its source alongside the configured chain.
+It also records service state, binary version, and the RPC client version when available.
 Secret content never enters the local payload.
 
 ## Provenance

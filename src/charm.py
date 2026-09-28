@@ -15,6 +15,7 @@ from charms.dwellir.blockchain_common.v1 import (
     collect_and_upload,
     parse_credentials_secret_id,
 )
+from charms.dwellir.blockchain_common.v1.evm_chains.registry import chain_name
 from charms.dwellir_observability.v0.machine_observability import (
     MachineObservabilityPayload,
     MachineObservabilityProvider,
@@ -159,11 +160,16 @@ class OctezCharm(ops.CharmBase):
 
     def _metadata(self):
         """Write topology and chain metadata locally, then upload with Juju credentials."""
+        identity = octez.runtime_identity(self.config["chain-id"])
+        actual_chain = identity["chain_id"]
+        network = self.config["network-name"]
+        if actual_chain != self.config["chain-id"]:
+            network = chain_name(actual_chain, f"chain-{actual_chain}")
         blockchain = EvmBlockchainMetadata(
             blockchain_ecosystem="ethereum",
-            blockchain_network_name=self.config["network-name"],
-            chain_id=self.config["chain-id"],
-            l2_chain_id=self.config["chain-id"],
+            blockchain_network_name=network,
+            chain_id=actual_chain,
+            l2_chain_id=actual_chain,
             client_name="octez-evm-node",
             client_version=octez.version(),
             cmdline=f"run observer --data-dir {c.DATA} {self.config['service-args']}",
@@ -177,7 +183,10 @@ class OctezCharm(ops.CharmBase):
             meta=self.meta,
             base_dir=c.METADATA,
             blockchain=blockchain,
-            sections={"runtime": octez.node_info(), "chain_identity_source": "operator-config"},
+            sections={
+                "runtime": octez.node_info(),
+                "chain_identity": {**identity, "configured_chain_id": self.config["chain-id"]},
+            },
         )
         collect_and_upload(**payload_args, no_upload=True)
         secret = self.config["collector-s3-credentials"]

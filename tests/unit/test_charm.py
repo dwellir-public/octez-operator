@@ -152,3 +152,18 @@ def test_failed_stop_retains_operator_intent(harness):
         with pytest.raises(ActionFailed):
             harness.run_action("stop-node")
     assert harness.charm._stored.stopped
+
+
+def test_metadata_records_actual_chain_when_configuration_mismatches(harness):
+    c.BINARY.touch()
+    with patch("octez.service_state", return_value="active"), patch("octez.version", return_value="0.66"):
+        with patch("octez.rpc", side_effect=["0x1", "actual-client"]):
+            harness.charm._metadata()
+    payload = json.loads((c.METADATA / "octez-0.json").read_text())
+    assert payload["blockchain"]["chain_id"] == 1
+    assert payload["chain_identity"] == {
+        "chain_id": 1,
+        "source": "rpc",
+        "rpc_client_version": "actual-client",
+        "configured_chain_id": 42793,
+    }
