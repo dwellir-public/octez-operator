@@ -117,7 +117,9 @@ def install_binary(url: str, digest: str) -> None:
         perform_sha256_checksum_from_string(staged, digest)
         staged.chmod(0o755)
         command(str(staged), "--version")
-        command("systemctl", "stop", c.SERVICE, check=False, timeout=330)
+        loaded = command("systemctl", "show", c.SERVICE, "--property=LoadState", "--value").stdout.strip()
+        if loaded != "not-found":
+            command("systemctl", "stop", c.SERVICE, timeout=330)
         staged.replace(c.BINARY)
     finally:
         staged.unlink(missing_ok=True)

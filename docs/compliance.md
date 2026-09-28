@@ -14,7 +14,7 @@ Before: empty repository. No deployed charm exists.
 | Accurate source topology | Required baseline OBS-001 / observability | GAP | Implement | PASS conditional on live collector | Pending live checks |
 | Machine observability schema v3 | Contract-required / selected interface | GAP | Vendor reference | PASS | PASS: byte-identical reference and relation payload test |
 | Recoverable snapshot bootstrap outside hooks | Task-required / archive deployment | GAP | Implement | PASS conditional on real snapshot import | Pending integration |
-| 55% coverage, lint and build | Task-required creation standard / shared | GAP | Implement | PASS | PASS: 28 unit tests, 73.57% coverage, Ruff, Ubuntu 24.04 charmpacker build |
+| 55% coverage, lint and build | Task-required creation standard / shared | GAP | Implement | PASS | PASS: 30 unit tests, coverage above 55%, Ruff, Ubuntu 24.04 charmpacker build |
 | Built artifact and pytest/Jubilant integration | Required baseline DEPLOY-001 and task-required creation standard / release | UNKNOWN | Implement suite; run on explicit test model | PASS conditional on environment | Pending integration |
 | Alerts | Recommended default / observability | N/A | Publish empty artifacts; no approved thresholds | N/A | Empty artifacts |
 
@@ -56,3 +56,20 @@ The first real integration run found Octez's eager HOME lookup during `--version
 Juju hooks omit HOME; SSH sessions supplied it and hid the failure.
 Management commands now supply the executing account's home when absent.
 Both systemd units also set HOME explicitly. A real subprocess test covers this boundary.
+
+A review found that binary replacement ignored a failed service stop.
+Replacement now tolerates only a missing service during first installation.
+Any real stop failure preserves the installed binary. A regression test checks both files.
+
+GitHub Actions now use verified immutable commit references.
+Release publication rejects a pre-existing tag that resolves to a different commit.
+
+Two review requests concern the unmodified observability library's consumer and multi-unit behavior.
+This charm only publishes sources, carries no artifacts, and permits one unit per application.
+Those upstream contract changes are deferred to the authoritative reference repository.
+Changing the vendored bytes here would break the declared provenance and consumer compatibility.
+
+The snapshot staging request is not adopted because the native importer already stages extraction on the data filesystem.
+Normal importer failure performs native temporary-directory cleanup.
+A forced kill or interruption during final promotion requires operator inspection.
+The charm refuses to delete ambiguous data or bypass its no-overwrite guard.

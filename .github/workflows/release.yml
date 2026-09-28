@@ -16,8 +16,8 @@ jobs:
   unit:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
       - run: make lint-test unit-test
   integration:
     needs: unit
@@ -30,7 +30,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: octez-charm
       - name: Publish tested charm
@@ -39,4 +39,13 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
           REPOSITORY: ${{ github.repository }}
           REVISION: ${{ github.sha }}
-        run: gh release create "$RELEASE_TAG" ./*.charm --repo "$REPOSITORY" --target "$REVISION" --generate-notes
+        run: |
+          git check-ref-format "refs/tags/$RELEASE_TAG"
+          remote_refs=$(git ls-remote --sort=refname "https://github.com/$REPOSITORY.git" \
+            "refs/tags/$RELEASE_TAG" "refs/tags/$RELEASE_TAG^{}")
+          existing=$(printf '%s\n' "$remote_refs" | tail -n1 | cut -f1)
+          if [[ -n "$existing" && "$existing" != "$REVISION" ]]; then
+            echo "Release tag points to $existing, but the tested revision is $REVISION" >&2
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" ./*.charm --repo "$REPOSITORY" --target "$REVISION" --generate-notes

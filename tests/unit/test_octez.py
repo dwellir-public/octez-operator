@@ -68,7 +68,7 @@ def test_binary_replacement_stops_only_after_download_and_validation(tmp_path, m
 
     with patch("octez.download_file", side_effect=download), patch("octez.command", side_effect=command):
         octez.install_binary(CONFIG["binary-url"], hashlib.sha256(b"new").hexdigest())
-    assert calls == ["download", "--version", "stop"]
+    assert calls == ["download", "--version", "show", "stop"]
     assert binary.read_bytes() == b"new"
 
 
@@ -141,3 +141,22 @@ def test_native_command_receives_home_when_juju_hook_omits_it(monkeypatch):
     monkeypatch.delenv("HOME", raising=False)
     result = octez.command(sys.executable, "-c", "import os; print(os.environ['HOME'])")
     assert result.stdout.strip() == pwd.getpwuid(os.getuid()).pw_dir
+
+
+def test_binary_replacement_aborts_when_existing_service_cannot_stop(tmp_path, monkeypatch):
+    import hashlib
+
+    binary = tmp_path / "octez"
+    binary.write_bytes(b"old")
+    monkeypatch.setattr(c, "BINARY", binary)
+
+    def command(*args, **kwargs):
+        if args[:2] == ("systemctl", "stop"):
+            raise subprocess.CalledProcessError(1, args, stderr="Failed to stop node")
+        return subprocess.CompletedProcess(args, 0, "loaded")
+
+    with patch("octez.download_file", side_effect=lambda url, path: path.write_bytes(b"new")):
+        with patch("octez.command", side_effect=command), pytest.raises(subprocess.CalledProcessError):
+            octez.install_binary(CONFIG["binary-url"], hashlib.sha256(b"new").hexdigest())
+    assert binary.read_bytes() == b"old"
+    assert not binary.with_suffix(".new").exists()
