@@ -152,6 +152,12 @@ def test_failed_stop_retains_operator_intent(harness):
         with pytest.raises(ActionFailed):
             harness.run_action("stop-node")
     assert harness.charm._stored.stopped
+    with (
+        patch("octez.bootstrap_running", return_value=False),
+        patch("octez.service_state", return_value="active"),
+    ):
+        harness.charm._set_status()
+    assert harness.model.unit.status.message == "Node active; operator stop requested"
 
 
 def test_metadata_records_actual_chain_when_configuration_mismatches(harness):

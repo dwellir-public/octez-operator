@@ -143,7 +143,11 @@ class OctezCharm(ops.CharmBase):
             self.unit.status = ops.MaintenanceStatus("Node stopped; snapshot import running")
             return
         if self._stored.stopped:
-            self.unit.status = ops.BlockedStatus("Node stopped by operator")
+            state = octez.service_state(c.SERVICE)
+            message = "Node stopped by operator"
+            if state in {"active", "activating", "deactivating"}:
+                message = f"Node {state}; operator stop requested"
+            self.unit.status = ops.BlockedStatus(message)
             return
         if octez.service_state(c.SERVICE) != "active":
             self.unit.status = ops.BlockedStatus("Node stopped; inspect get-node-info and systemd journal")
