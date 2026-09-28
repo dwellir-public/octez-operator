@@ -41,7 +41,9 @@ make integration-test
 For an already staged fixture, set OCTEZ_TEST_MACHINE to its machine ID and use an absolute snapshot path.
 The pytest/Jubilant suite deploys the charm on that machine.
 It verifies the model UUID and permits only the localhost LXD cloud.
-It refuses an existing octez application and leaves the supplied model for inspection.
+It refuses an existing octez application.
+Direct pytest runs leave the supplied model for inspection.
+The integration workflow destroys its disposable controller afterward.
 The manual integration workflow and release workflow run this suite.
 Pull requests run lint and unit tests only.
 Release remains blocked until integration succeeds; the release workflow publishes a GitHub artifact, not a Charmhub channel.
