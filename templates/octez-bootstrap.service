@@ -1,0 +1,17 @@
+[Unit]
+Description=Import an Octez EVM archive snapshot
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=!/var/lib/octez/.snapshot-imported
+
+[Service]
+Type=oneshot
+User=octez
+Group=octez
+Environment=HOME=/var/lib/octez
+ExecStart=/usr/bin/python3 /usr/local/lib/octez/bootstrap.py
+TimeoutStartSec=infinity
+TimeoutStopSec=300
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true

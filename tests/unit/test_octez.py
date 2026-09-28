@@ -1,0 +1,162 @@
+"""Protect node installation, archive flags and asynchronous bootstrap behavior."""
+
+import subprocess
+from unittest.mock import patch
+
+import pytest
+
+import constants as c
+import octez
+
+CONFIG = {
+    "binary-url": "https://example.test/octez",
+    "binary-sha256": "a" * 64,
+    "snapshot-source": "https://example.test/archive",
+    "service-args": "--network mainnet --history archive --rpc-addr 0.0.0.0 --rpc-port 8545",
+}
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        "--history full:30 --rpc-addr 0.0.0.0 --rpc-port 8545",
+        CONFIG["service-args"] + " --history rolling:7",
+        CONFIG["service-args"] + " --data-dir=/tmp/other",
+        CONFIG["service-args"] + " --init-from-snapshot",
+        CONFIG["service-args"].replace("8545", "9545"),
+    ],
+)
+def test_conflicting_archive_and_managed_flags_are_rejected(args):
+    with pytest.raises(ValueError):
+        octez.validate_config({**CONFIG, "service-args": args})
+
+
+def test_explicit_archive_flags_accept_equals_syntax():
+    args = "--history=archive --rpc-addr=0.0.0.0 --rpc-port=8545"
+    assert octez.validate_config({**CONFIG, "service-args": args}) == args
+
+
+def test_binary_checksum_failure_preserves_running_service_and_old_binary(tmp_path, monkeypatch):
+    binary = tmp_path / "octez"
+    binary.write_bytes(b"old")
+    monkeypatch.setattr(c, "BINARY", binary)
+    with patch("octez.download_file", side_effect=lambda url, path: path.write_bytes(b"bad")):
+        with patch("octez.command") as command, pytest.raises(ValueError, match="checksum"):
+            octez.install_binary(CONFIG["binary-url"], "a" * 64)
+    assert binary.read_bytes() == b"old"
+    command.assert_not_called()
+    assert not binary.with_suffix(".new").exists()
+
+
+def test_binary_replacement_stops_only_after_download_and_validation(tmp_path, monkeypatch):
+    import hashlib
+
+    binary = tmp_path / "octez"
+    binary.write_bytes(b"old")
+    monkeypatch.setattr(c, "BINARY", binary)
+    calls = []
+
+    def download(url, path):
+        calls.append("download")
+        path.write_bytes(b"new")
+
+    def command(*args, **kwargs):
+        if args[0] == "systemctl":
+            assert binary.read_bytes() == b"old"
+        calls.append(args[1])
+        return subprocess.CompletedProcess(args, 0, "0.66", "")
+
+    with patch("octez.download_file", side_effect=download), patch("octez.command", side_effect=command):
+        octez.install_binary(CONFIG["binary-url"], hashlib.sha256(b"new").hexdigest())
+    assert calls == ["download", "--version", "show", "stop"]
+    assert binary.read_bytes() == b"new"
+
+
+def test_snapshot_start_does_not_wait_for_import(tmp_path, monkeypatch):
+    monkeypatch.setattr(c, "MARKER", tmp_path / "marker")
+    with patch("octez.service_state", return_value="inactive"), patch("octez.command") as command:
+        octez.start("https://example.test/archive")
+    assert command.call_args.args == ("systemctl", "start", "--no-block", "octez-bootstrap")
+
+
+def test_failed_snapshot_requires_operator_retry(tmp_path, monkeypatch):
+    monkeypatch.setattr(c, "MARKER", tmp_path / "marker")
+    with patch("octez.service_state", return_value="failed"), patch("octez.command") as command:
+        with pytest.raises(ValueError, match="start-node"):
+            octez.start("https://example.test/archive")
+        command.assert_not_called()
+        octez.start("https://example.test/archive", retry=True)
+        command.assert_called_once()
+
+
+def test_completed_transient_import_does_not_block_node_start(tmp_path, monkeypatch):
+    monkeypatch.setattr(c, "DATA", tmp_path)
+    monkeypatch.setattr(c, "MARKER", tmp_path / ".snapshot-imported")
+    c.MARKER.touch()
+    (tmp_path / "store.sqlite").touch()
+    with patch("octez.service_state", return_value="active"):
+        with patch("octez.command", return_value=subprocess.CompletedProcess([], 0, "exited\n")) as command:
+            assert not octez.bootstrap_running()
+            octez.start("https://example.test/archive")
+    assert command.call_args.args == ("systemctl", "start", "octez")
+
+
+def test_stop_skips_missing_node_unit_but_stops_early_import():
+    def command(*args, **kwargs):
+        state = "not-found" if args[2] == "octez" else "loaded"
+        return subprocess.CompletedProcess(args, 0, state)
+
+    with patch("octez.command", side_effect=command) as run:
+        octez.stop_services()
+    assert ("systemctl", "stop", "octez-bootstrap") in [call.args for call in run.call_args_list]
+    assert ("systemctl", "stop", "octez") not in [call.args for call in run.call_args_list]
+
+
+def test_configuration_preserves_disabled_boot_state(tmp_path, monkeypatch):
+    monkeypatch.setattr(c, "BOOTSTRAP_CONFIG", tmp_path / "bootstrap.json")
+    monkeypatch.setattr(c, "BOOTSTRAP_SCRIPT", tmp_path / "scripts/bootstrap.py")
+    with patch("octez.snapshot_ready", return_value=False), patch("octez.write_service_args"):
+        with patch("octez.install_systemd_unit"), patch("octez.command") as command:
+            octez.configure(CONFIG["service-args"], CONFIG["snapshot-source"], enabled=False)
+    assert command.call_args.args == ("systemctl", "disable", "octez")
+
+
+def test_stopping_disables_boot_before_waiting_for_shutdown():
+    with patch("octez.command", return_value=subprocess.CompletedProcess([], 0, "loaded")) as run:
+        octez.stop_services()
+    operations = [call.args[:3] for call in run.call_args_list]
+    assert operations.index(("systemctl", "disable", "octez")) < operations.index(
+        ("systemctl", "stop", "octez")
+    )
+    for call in run.call_args_list:
+        if call.args[1] == "stop":
+            assert call.kwargs["timeout"] > 300
+
+
+def test_native_command_receives_home_when_juju_hook_omits_it(monkeypatch):
+    import os
+    import pwd
+    import sys
+
+    monkeypatch.delenv("HOME", raising=False)
+    result = octez.command(sys.executable, "-c", "import os; print(os.environ['HOME'])")
+    assert result.stdout.strip() == pwd.getpwuid(os.getuid()).pw_dir
+
+
+def test_binary_replacement_aborts_when_existing_service_cannot_stop(tmp_path, monkeypatch):
+    import hashlib
+
+    binary = tmp_path / "octez"
+    binary.write_bytes(b"old")
+    monkeypatch.setattr(c, "BINARY", binary)
+
+    def command(*args, **kwargs):
+        if args[:2] == ("systemctl", "stop"):
+            raise subprocess.CalledProcessError(1, args, stderr="Failed to stop node")
+        return subprocess.CompletedProcess(args, 0, "loaded")
+
+    with patch("octez.download_file", side_effect=lambda url, path: path.write_bytes(b"new")):
+        with patch("octez.command", side_effect=command), pytest.raises(subprocess.CalledProcessError):
+            octez.install_binary(CONFIG["binary-url"], hashlib.sha256(b"new").hexdigest())
+    assert binary.read_bytes() == b"old"
+    assert not binary.with_suffix(".new").exists()

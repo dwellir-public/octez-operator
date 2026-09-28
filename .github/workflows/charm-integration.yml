@@ -1,0 +1,53 @@
+name: Charm integration
+on:
+  workflow_dispatch:
+    inputs:
+      snapshot:
+        description: HTTPS URL for a small genuine mainnet archive snapshot
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      snapshot:
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      - uses: canonical/setup-lxd@8c6a87bfb56aa48f3fb9b830baa18562d8bfd4ee # v1
+      - name: Install Juju and Charmcraft
+        run: |
+          sudo snap install juju --channel=3.6/stable --classic
+          sudo snap install charmcraft --classic
+          sudo snap install astral-uv --classic
+      - run: juju bootstrap localhost octez-ci
+      - name: Create explicit disposable model
+        run: |
+          juju add-model octez-test --controller octez-ci
+          echo "OCTEZ_TEST_MODEL=octez-ci:admin/octez-test" >> "$GITHUB_ENV"
+          model_uuid=$(juju show-model octez-ci:admin/octez-test --format json | jq -r '.[]."model-uuid"')
+          echo "OCTEZ_TEST_MODEL_UUID=$model_uuid" >> "$GITHUB_ENV"
+      - run: make build-charm
+      - name: Run lifecycle integration
+        env:
+          OCTEZ_CHARM: ./octez_ubuntu@24.04-amd64.charm
+          OCTEZ_TEST_SNAPSHOT: ${{ inputs.snapshot }}
+          OCTEZ_INITIAL_BINARY_URL: https://gitlab.com/api/v4/projects/3836952/packages/generic/octez-evm-node-0.65/0.65/linux-x86_64-octez-evm-node
+          OCTEZ_INITIAL_BINARY_SHA256: 7cda413e627c70e6510018ce52e71fd8f90202643b3e1b5ec56c380cf260bb2d
+          OCTEZ_BINARY_URL: https://gitlab.com/api/v4/projects/3836952/packages/generic/octez-evm-node-0.66/0.66/linux-x86_64-octez-evm-node
+          OCTEZ_BINARY_SHA256: e36136e0bdd9f527dd17b0ab6c8b3d3951fc986c6bbf48d14f92be0a72133079
+          OCTEZ_ALLOW_DESTRUCTIVE: "yes"
+        run: make integration-test
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: octez-charm
+          path: '*.charm'
+      - name: Destroy disposable controller
+        if: always()
+        run: juju destroy-controller octez-ci --destroy-all-models --destroy-storage --no-prompt
