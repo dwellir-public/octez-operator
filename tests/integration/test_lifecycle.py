@@ -36,14 +36,14 @@ def juju():
     return client
 
 
-def action(juju, name):
-    task = juju.run("octez/0", name, wait=120)
+def action(juju, unit, name):
+    task = juju.run(unit, name, wait=360)
     task.raise_on_failure()
     return task.results
 
 
-def process_identity(juju):
-    return juju.ssh("octez/0", "systemctl show octez -p MainPID -p ExecMainStartTimestampMonotonic")
+def process_identity(juju, unit):
+    return juju.ssh(unit, "systemctl show octez -p MainPID -p ExecMainStartTimestampMonotonic")
 
 
 def ready(juju, timeout=600):
@@ -70,32 +70,34 @@ def test_archive_lifecycle(juju):
         to=os.environ.get("OCTEZ_TEST_MACHINE"),
     )
     ready(juju, timeout=3600)
-    info = action(juju, "get-node-info")
+    unit = next(iter(juju.status().apps["octez"].units))
+    info = action(juju, unit, "get-node-info")
     assert info["snapshot-imported"] is True
     assert info["service-state"] == "active"
     assert "0.66" in info["version"]
-    assert "Octez EVM operator" in action(juju, "print-readme")["readme"]
+    assert "Octez EVM operator" in action(juju, unit, "print-readme")["readme"]
 
-    action(juju, "stop-node")
-    assert action(juju, "get-node-info")["service-state"] == "inactive"
-    action(juju, "start-node")
+    action(juju, unit, "stop-node")
+    assert action(juju, unit, "get-node-info")["service-state"] == "inactive"
+    action(juju, unit, "start-node")
     ready(juju)
-    identity = process_identity(juju)
-    action(juju, "restart-node")
+    identity = process_identity(juju, unit)
+    action(juju, unit, "restart-node")
     ready(juju)
-    assert process_identity(juju) != identity
+    assert process_identity(juju, unit) != identity
 
-    identity = process_identity(juju)
+    identity = process_identity(juju, unit)
     juju.config("octez", {"service-args": args + " --rpc-batch-limit 50"})
     ready(juju)
-    assert "--rpc-batch-limit 50" in action(juju, "get-node-info")["service-args"]
-    assert process_identity(juju) != identity
+    assert "--rpc-batch-limit 50" in action(juju, unit, "get-node-info")["service-args"]
+    assert process_identity(juju, unit) != identity
 
-    payload = json.loads(juju.ssh("octez/0", "sudo cat /var/lib/octez-metadata/octez-0.json"))
+    metadata_file = unit.replace("/", "-") + ".json"
+    payload = json.loads(juju.ssh(unit, f"sudo cat /var/lib/octez-metadata/{metadata_file}"))
     assert payload["blockchain"]["chain_id"] == 42793
     assert payload["juju_topology"]["application"] == "octez"
 
-    identity = process_identity(juju)
+    identity = process_identity(juju, unit)
     juju.refresh("octez", path=os.environ["OCTEZ_CHARM"])
     ready(juju)
-    assert process_identity(juju) == identity
+    assert process_identity(juju, unit) == identity
