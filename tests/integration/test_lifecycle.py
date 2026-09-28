@@ -27,7 +27,10 @@ async def test_archive_lifecycle(ops_test):
     required = ("OCTEZ_CHARM", "OCTEZ_TEST_SNAPSHOT", "OCTEZ_BINARY_URL", "OCTEZ_BINARY_SHA256")
     missing = [name for name in required if not os.environ.get(name)]
     assert not missing, f"Required integration inputs: {', '.join(missing)}"
-    args = "--network mainnet --history archive --rpc-addr 0.0.0.0 --rpc-port 8545 --dont-track-rollup-node --no-sync"
+    args = (
+        "--network mainnet --history archive --rpc-addr 0.0.0.0 --rpc-port 8545 "
+        "--dont-track-rollup-node --no-sync"
+    )
     config = {
         "binary-url": os.environ["OCTEZ_BINARY_URL"],
         "binary-sha256": os.environ["OCTEZ_BINARY_SHA256"],

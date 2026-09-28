@@ -15,7 +15,7 @@ Snapshot imports stream directly from HTTPS to avoid retaining a compressed copy
 juju deploy ./octez_ubuntu@24.04-amd64.charm octez --to 0 \
   --config binary-url=https://gitlab.com/api/v4/projects/3836952/packages/generic/octez-evm-node-0.66/0.66/linux-x86_64-octez-evm-node \
   --config binary-sha256=e36136e0bdd9f527dd17b0ab6c8b3d3951fc986c6bbf48d14f92be0a72133079 \
-  --config snapshot-source=https://snapshots.tzinit.org/etherlink-mainnet/evm-snapshot-archive
+  --config snapshot-source=https://storage.googleapis.com/nl-sandboxes-etherlink--snapshots/etherlink-mainnet/archive/etherlink-mainnet-archive-53880953.gz
 ```
 
 Verify the current archive URL and capacity before deployment.

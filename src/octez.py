@@ -27,7 +27,24 @@ def service_state(service: str) -> str:
 
 def bootstrap_running() -> bool:
     """Detect managed and operator-started snapshot workers."""
-    return service_state(c.BOOTSTRAP_SERVICE) in {"active", "activating", "deactivating"}
+    state = service_state(c.BOOTSTRAP_SERVICE)
+    if state == "active" and snapshot_ready():
+        substate = command("systemctl", "show", c.BOOTSTRAP_SERVICE, "--property=SubState", "--value")
+        return substate.stdout.strip() != "exited"
+    return state in {"active", "activating", "deactivating"}
+
+
+def snapshot_ready() -> bool:
+    """Require both the explicit completion marker and the imported database."""
+    return c.MARKER.exists() and (c.DATA / "store.sqlite").is_file()
+
+
+def stop_services() -> None:
+    """Stop existing services even when an early import predates the main unit."""
+    for service in (c.SERVICE, c.BOOTSTRAP_SERVICE):
+        loaded = command("systemctl", "show", service, "--property=LoadState", "--value").stdout.strip()
+        if loaded != "not-found":
+            command("systemctl", "stop", service)
 
 
 def validate_config(config) -> str:
@@ -101,6 +118,11 @@ def install_binary(url: str, digest: str) -> None:
 
 def configure(args: str, source: str) -> None:
     """Install service definitions and worker config while no import is running."""
+    if snapshot_ready() and service_state(c.BOOTSTRAP_SERVICE) == "active":
+        # An adopted transient oneshot can remain active after import completion.
+        if bootstrap_running():
+            raise ValueError("Snapshot process is still running")
+        command("systemctl", "stop", c.BOOTSTRAP_SERVICE)
     write_service_args(c.SERVICE, args)
     for service in (c.SERVICE, c.BOOTSTRAP_SERVICE):
         install_systemd_unit(Path("templates") / f"{service}.service", service)
@@ -115,7 +137,7 @@ def configure(args: str, source: str) -> None:
 
 def start(source: str, *, retry: bool = False) -> None:
     """Start the node or queue an import without waiting for its completion."""
-    if c.MARKER.exists():
+    if snapshot_ready():
         command("systemctl", "start", c.SERVICE)
         return
     if bootstrap_running():

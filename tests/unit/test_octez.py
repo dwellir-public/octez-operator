@@ -87,3 +87,26 @@ def test_failed_snapshot_requires_operator_retry(tmp_path, monkeypatch):
         command.assert_not_called()
         octez.start("https://example.test/archive", retry=True)
         command.assert_called_once()
+
+
+def test_completed_transient_import_does_not_block_node_start(tmp_path, monkeypatch):
+    monkeypatch.setattr(c, "DATA", tmp_path)
+    monkeypatch.setattr(c, "MARKER", tmp_path / ".snapshot-imported")
+    c.MARKER.touch()
+    (tmp_path / "store.sqlite").touch()
+    with patch("octez.service_state", return_value="active"):
+        with patch("octez.command", return_value=subprocess.CompletedProcess([], 0, "exited\n")) as command:
+            assert not octez.bootstrap_running()
+            octez.start("https://example.test/archive")
+    assert command.call_args.args == ("systemctl", "start", "octez")
+
+
+def test_stop_skips_missing_node_unit_but_stops_early_import():
+    def command(*args):
+        state = "not-found" if args[2] == "octez" else "loaded"
+        return subprocess.CompletedProcess(args, 0, state)
+
+    with patch("octez.command", side_effect=command) as run:
+        octez.stop_services()
+    assert ("systemctl", "stop", "octez-bootstrap") in [call.args for call in run.call_args_list]
+    assert ("systemctl", "stop", "octez") not in [call.args for call in run.call_args_list]

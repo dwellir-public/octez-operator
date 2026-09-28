@@ -54,7 +54,7 @@ class OctezCharm(ops.CharmBase):
         logger.debug("Reconcile workload configuration")
         self._reconcile()
 
-    def _reconcile(self):
+    def _reconcile(self, *, retry=False):
         """Apply configuration without interrupting an active snapshot import."""
         try:
             args = octez.validate_config(self.config)
@@ -72,7 +72,7 @@ class OctezCharm(ops.CharmBase):
             self.unit.set_workload_version(octez.version())
             self.unit.open_port("tcp", c.RPC_PORT)
             if not self._stored.stopped:
-                self._start_or_restart(changed)
+                self._start_or_restart(changed, retry=retry)
             self._status_metadata()
         except ERRORS as exc:
             logger.exception("Workload reconciliation failed")
@@ -91,16 +91,16 @@ class OctezCharm(ops.CharmBase):
             octez.install_binary(self.config["binary-url"], digest)
         self._stored.binary_digest = digest
 
-    def _start_or_restart(self, changed):
+    def _start_or_restart(self, changed, *, retry=False):
         """Restart only for changed arguments after the snapshot is ready."""
-        if changed and c.MARKER.exists():
+        if changed and octez.snapshot_ready():
             octez.command("systemctl", "restart", c.SERVICE)
         else:
-            octez.start(self.config["snapshot-source"])
+            octez.start(self.config["snapshot-source"], retry=retry)
 
     def _on_update_status(self, _event):
         logger.debug("Refresh workload and bootstrap status")
-        if not self._stored.configured or (c.MARKER.exists() and not self._stored.stopped):
+        if not self._stored.configured or (octez.snapshot_ready() and not self._stored.stopped):
             self._reconcile()
         else:
             self._status_metadata()
@@ -120,8 +120,8 @@ class OctezCharm(ops.CharmBase):
 
     def _stop(self):
         """Stop both services and persist the operator stop across config events."""
-        octez.command("systemctl", "stop", c.SERVICE, c.BOOTSTRAP_SERVICE)
         self._stored.stopped = True
+        octez.stop_services()
         self.unit.status = ops.BlockedStatus("Node stopped by operator")
 
     def _status_metadata(self):
@@ -206,8 +206,10 @@ class OctezCharm(ops.CharmBase):
         logger.debug("Start node action")
         try:
             self._stored.stopped = False
-            octez.start(self.config["snapshot-source"], retry=True)
-            self._reconcile()
+            self._reconcile(retry=True)
+            if isinstance(self.unit.status, ops.BlockedStatus):
+                event.fail(self.unit.status.message)
+                return
             event.set_results({"result": self.unit.status.message})
         except ERRORS as exc:
             event.fail(str(exc))
@@ -223,7 +225,7 @@ class OctezCharm(ops.CharmBase):
     def _on_restart_node(self, event):
         logger.debug("Restart node action")
         try:
-            if octez.bootstrap_running() or not c.MARKER.exists():
+            if octez.bootstrap_running() or not octez.snapshot_ready():
                 raise ValueError("Cannot restart before snapshot import completes")
             self._stored.stopped = False
             octez.command("systemctl", "restart", c.SERVICE)

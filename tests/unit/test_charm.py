@@ -51,12 +51,13 @@ def test_in_progress_external_import_is_adopted_without_install_or_restart(harne
 
 def test_finished_import_starts_node_on_next_status_event(harness):
     c.MARKER.touch()
+    (c.DATA / "store.sqlite").touch()
     with patch("octez.bootstrap_running", return_value=False), patch("octez.prepare"):
         with patch.object(harness.charm, "_install_binary"), patch("octez.configure"):
             with patch("octez.start") as start, patch("octez.version", return_value="0.66"):
                 with patch.object(harness.charm, "_status_metadata"):
                     harness.charm.on.update_status.emit()
-    start.assert_called_once_with(CONFIG["snapshot-source"])
+    start.assert_called_once_with(CONFIG["snapshot-source"], retry=False)
     assert harness.get_workload_version() == "0.66"
 
 
@@ -140,3 +141,14 @@ def test_health_uses_supported_rpc_and_detects_wrong_chain(harness):
         with patch("octez.rpc", return_value="0x1"):
             harness.charm._set_status()
         assert "unexpected chain ID 1" in harness.model.unit.status.message
+
+
+def test_failed_stop_retains_operator_intent(harness):
+    import subprocess
+
+    from ops.testing import ActionFailed
+
+    with patch("octez.stop_services", side_effect=subprocess.CalledProcessError(1, "systemctl")):
+        with pytest.raises(ActionFailed):
+            harness.run_action("stop-node")
+    assert harness.charm._stored.stopped
