@@ -51,3 +51,8 @@ It permits only the localhost cloud and requires an explicit destructive opt-in.
 
 The local suite does not prove a second binary-version upgrade or real S3 delivery.
 Those checks require separate live evidence before claiming the full release matrix passes.
+
+The first real integration run found Octez's eager HOME lookup during `--version`.
+Juju hooks omit HOME; SSH sessions supplied it and hid the failure.
+Management commands now supply the executing account's home when absent.
+Both systemd units also set HOME explicitly. A real subprocess test covers this boundary.

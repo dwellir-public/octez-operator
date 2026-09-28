@@ -1,6 +1,8 @@
 """Native Octez installation, bootstrap and diagnostics."""
 
 import json
+import os
+import pwd
 import re
 import shlex
 import shutil
@@ -17,7 +19,10 @@ import constants as c
 
 def command(*args: str, check: bool = True, timeout: int = 60) -> subprocess.CompletedProcess:
     """Run a bounded management command; never use this for snapshot import."""
-    return subprocess.run(args, check=check, text=True, capture_output=True, timeout=timeout)
+    environment = os.environ.copy()
+    # Octez evaluates its default data directory even for --version; Juju hooks omit HOME.
+    environment["HOME"] = environment.get("HOME") or pwd.getpwuid(os.getuid()).pw_dir
+    return subprocess.run(args, check=check, text=True, capture_output=True, timeout=timeout, env=environment)
 
 
 def service_state(service: str) -> str:

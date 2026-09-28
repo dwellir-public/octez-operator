@@ -131,3 +131,13 @@ def test_stopping_disables_boot_before_waiting_for_shutdown():
     for call in run.call_args_list:
         if call.args[1] == "stop":
             assert call.kwargs["timeout"] > 300
+
+
+def test_native_command_receives_home_when_juju_hook_omits_it(monkeypatch):
+    import os
+    import pwd
+    import sys
+
+    monkeypatch.delenv("HOME", raising=False)
+    result = octez.command(sys.executable, "-c", "import os; print(os.environ['HOME'])")
+    assert result.stdout.strip() == pwd.getpwuid(os.getuid()).pw_dir

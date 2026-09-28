@@ -8,6 +8,7 @@ ConditionPathExists=/var/lib/octez/.snapshot-imported
 Type=simple
 User=octez
 Group=octez
+Environment=HOME=/var/lib/octez
 EnvironmentFile=/etc/default/octez
 ExecStart=/usr/local/bin/octez-evm-node run observer --data-dir /var/lib/octez $OCTEZ_CLI_ARGS
 Restart=on-failure

@@ -8,6 +8,7 @@ ConditionPathExists=!/var/lib/octez/.snapshot-imported
 Type=oneshot
 User=octez
 Group=octez
+Environment=HOME=/var/lib/octez
 ExecStart=/usr/bin/python3 /usr/local/lib/octez/bootstrap.py
 TimeoutStartSec=infinity
 TimeoutStopSec=300
